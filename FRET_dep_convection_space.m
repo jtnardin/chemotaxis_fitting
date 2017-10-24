@@ -3,7 +3,11 @@
 %activation and its gradient (chemotaxis)
 
 function udata = FRET_dep_convection_space(q_est,F1,F2,m0,m1,dm0,dm1,x,dx,xn,x_int,xbd_0,...
-    xbd_1,t,dt,tn,tdata,xdata,IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg)
+    xbd_1,t,dt,tn,tdata,xdata,IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg,D)
+
+
+    %make sure q_est is a column vector
+    q_est = reshape(q_est,length(q_est),1);
 
     %initialization, advection rates
    
@@ -16,25 +20,25 @@ function udata = FRET_dep_convection_space(q_est,F1,F2,m0,m1,dm0,dm1,x,dx,xn,x_i
     %points along m that we care about
     n=4;
     %for v(m)
-%     msamp1 = augknt([m0,m1,linspace(m0,m1,n)],2);
-%     %create spline functions
-%     v_spline1 = spmak(msamp1,q_est(1:4)');
-    
-    %%%% 10-4-17, creating a chemokinesis function v(m) that satisfies v(0)=0.
-    %then linear up to m0 . May consider v(m) = 0 for all m < m0 in the
-% % %     %future.
-% % %     msamp1 = augknt([0,m1,0,linspace(m0,m1,n)],2);
-% % %     v_spline1 = spmak(msamp1,[0 q_est(1:4)']);
-
     msamp1 = augknt([m0,m1,linspace(m0,m1,n)],2);
     %create spline functions
     v_spline1 = spmak(msamp1,q_est(1:4)');
+    
+%     %%%% 10-4-17, creating a chemokinesis function v(m) that satisfies v(0)=0.
+%     %then linear up to m0 . May consider v(m) = 0 for all m < m0 in the
+%     %future.
+%     msamp1 = augknt([0,m1,0,linspace(m0,m1,n)],2);
+%     v_spline1 = spmak(msamp1,[0 q_est(1:4)']);
+
+%     msamp1 = augknt([m0,m1,linspace(m0,m1,n)],2);
+%     %create spline functions
+%     v_spline1 = spmak(msamp1,q_est(1:4)');
 
 
     %for v(dm/dx)
     msamp2 = augknt([dm0,dm1,linspace(dm0,dm1,n)],2);
     %create spline functions
-    v_spline2 = spmak(msamp2,q_est(5:end)');
+    v_spline2 = spmak(msamp2,q_est(5:8)');
     
     
     %evaluate V(m(t))
@@ -74,7 +78,7 @@ function udata = FRET_dep_convection_space(q_est,F1,F2,m0,m1,dm0,dm1,x,dx,xn,x_i
         [Axpos,Axneg] = AMatrixCompute(u(:,i-1),v,x_int,xn,A_pos,A_neg);
 
         u(:,i) = (speye(xn) + theta*(Axpos+Axneg))\(speye(xn) - ...
-            (1-theta)*(Axpos+Axneg))*u(:,i-1);
+            (1-theta)*(Axpos+Axneg) + q_est(9)*D)*u(:,i-1);
 
         %[u(:,i),flag] = gmres((speye(xn*yn) + theta*(Ax + Ay)),(speye(xn*yn) - (1-theta)*(Ax + Ay))*u(:,i-1));
 

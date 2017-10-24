@@ -14,15 +14,15 @@ for well = 4
         load([filename filename2 '.mat'])
 
         save_im = 0;
-        plot_res = 1;
+        plot_res = 0;
         stat_model = 'fewer';
 
 
         %options for each type of simulation
 
-%          run_sim(sim,well,pred_ind,q_final{sim},save_im,plot_res,stat_model,F1,F2,m0,m1,dm0,dm1)
+         run_sim(sim,well,pred_ind,q_final{sim},save_im,plot_res,stat_model,F1,F2,m0,m1,dm0,dm1)
 
-         pred_data(sim,well,pred_ind,q_final{sim},save_im,plot_res,stat_model,m0,m1,dm0,dm1)
+%          pred_data(sim,well,pred_ind,q_final{sim},save_im,plot_res,stat_model,m0,m1,dm0,dm1)
 
     end
           

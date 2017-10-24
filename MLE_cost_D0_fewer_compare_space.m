@@ -2,11 +2,21 @@
 
 function [J,OLS_SV,res,model] = MLE_cost_D0_fewer_compare_space(cell_data,...
     q_est,F1,F2,m0,m1,dm0,dm1,x,dx,xn,x_int,xbd_0,xbd_1,t,dt,tn,tdata,xdata,...
-    IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg)
+    IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg,D,sim_type)
+
+    %update q_est vector based on sim_type
+    
+    if strcmp(sim_type,'kinesis')
+        q_est = [q_est  zeros(1,4)  q_est(5)];
+    elseif strcmp(sim_type,'taxis')
+        q_est = [zeros(1,4)  q_est  q_est(5)];
+    else
+        error('Incorrect sim_type specification')
+    end
 
    %run simulation
     [model] = FRET_dep_convection_space(q_est,F1,F2,m0,m1,dm0,dm1,x,dx,xn,...
-        x_int,xbd_0,xbd_1,t,dt,tn,tdata,xdata,IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg);
+        x_int,xbd_0,xbd_1,t,dt,tn,tdata,xdata,IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg,D);
     
     
     %each row of model corresponds to solution at given time point. In this

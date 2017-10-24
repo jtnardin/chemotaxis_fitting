@@ -1,4 +1,4 @@
-%mean_cell_data_fitting_pred_fret_space.m written  9-25-17 by JTN to perform
+%taxis_fitting.m written  10-24-17 by JTN to perform
 %OLS optimization for the equation u_t + v(t)u_x =0 in a parallelized
 %for loop to mean experimental data
 
@@ -8,14 +8,17 @@
 %last updated by JTN : 10-4-17 to use csaps for FRET interpolation. Less
 %accurate to data, but smoother and less sensitive to the jaggedness.
 
-function mean_cell_data_fitting_pred_fret_space(l,m,pred_ind,stat_model,simnum)
+%updated by JTN : 10-24-17 to include diffusion, only consider every 5th
+%data point
+
+function taxis_fitting(l,m,pred_ind,sim_type,simnum)
 
     %for bookkeeping
     well = m;
     
     %interp IC
     IC_type = 'interp';
-    
+        
         
     %select which  grid size we're using
     xi = mod(l,4);
@@ -91,53 +94,54 @@ function mean_cell_data_fitting_pred_fret_space(l,m,pred_ind,stat_model,simnum)
 
     %load sparse matrices for later computation
     [A_pos,~,~,A_neg,~,~] = aMatrixConstruction(xn);
+    
+    D = dt/dx^2*sparse(repmat(x_int,1,3),[x_int-1 x_int x_int+1],[ones(1,xn-2) ...
+    -2*ones(1,xn-2) ones(1,xn-2)],xn,xn);
+    
  
-    options = optimset('maxiter',100);
+    options = optimset('maxiter',100,'display','iter');
        
 
     %each row of data matrix corresponds to data at given time point. In this
     %stat model, we only care about rows when t is a multiple of toCompare
 
+    %%% also only looking at every 5th point in space now (10-25)
+    
     toCompare = 6;
-    cell_data = cell_data(1:3*toCompare:end,:);
+    
+    cell_data = cell_data(1:3*toCompare:end,1:5:end);
 
     tdata = tdata(1:3*toCompare:end);
+    xdata = xdata(1:5:end);
 
-    name_save = [stat_model '_' num2str(toCompare)];
+    name_save = [sim_type '_' num2str(toCompare)];
         
     
     for k = 1:simnum
 
         
-            if strcmp(IC_type,'interp') %don't estimate height
-                %q = [v_1,v_2,..,v_8]^T;
-                q0_all{k} = [.02*rand(4,1);.002*rand(4,1)];
-                LB = [zeros(8,1)];
-                UB = [inf(8,1)];
-            else
-                q0_all{k} = [.0075*rand(1,5),1];
-                LB = [zeros(1,length(q0_all{k})-1),.7];
-                UB = [inf*ones(1,length(q0_all{k})-1),1.2];
-            end
+         %q = [v_1,v_2,..,v_8]^T;
+         q0_all{k} = [6e-3:1e-3:9e-3 1e-4];
+         LB = [zeros(5,1)];
+         UB = [inf(5,1)];
+         
 
+        tic
 
+        [q_all{k},J_all(k)] = fmincon(@(q) MLE_cost_D0_fewer_compare_space(cell_data...
+            ,q,F1,F2,m0,m1,dm0,dm1,x,dx,xn,x_int,xbd_0,xbd_1,t,dt,tn,...
+            tdata,xdata,IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg,D,sim_type),q0_all{k}...
+            ,[],[],[],[],LB,UB,[],options);
 
-            tic
-
-            [q_all{k},J_all(k)] = fmincon(@(q) MLE_cost_D0_fewer_compare_space(cell_data...
-                ,q,F1,F2,m0,m1,dm0,dm1,x,dx,xn,x_int,xbd_0,xbd_1,t,dt,tn,...
-                tdata,xdata,IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg),q0_all{k}...
-                ,[],[],[],[],LB,UB,[],options);
-
-            toc
+        toc
 
                        
     end
 
     %save
-    save(['/scratch/summit/jona8898/chem_fitting/FRET_interp_est_well_' ...
-        num2str(well) '_' num2str(l) '_' name_save '_pred_'...
-        num2str(pred_ind) '_space.mat' ],...
+    save(['/scratch/summit/jona8898/chem_fitting/FRET_fitting_well_' ...
+        num2str(well) '_xn_' num2str(l) '_' name_save '_pred_'...
+        num2str(pred_ind) '.mat' ],...
         'q_all','q0_all','J_all','F1','F2','m0','m1','dm0','dm1')
 
 end

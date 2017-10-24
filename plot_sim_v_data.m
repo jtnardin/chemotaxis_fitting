@@ -7,17 +7,30 @@
     pred_ind = 3;
     stat_model = 'fewer';
     IC_type = 'interp';
+    sim_type = 'taxis'; %kinesis
+    fitpred = 'fit';
 
 
 %load parameter vector
-    filename = ['FRET_interp_est_well_' num2str(well) '_'];
-    filename2 = ['_fewer_6_pred_' num2str(pred_ind) '_space_final'];
+    filename = ['FRET_fitting_well_' num2str(well) '_xn_'];
+    filename2 = ['_sim_type_' num2str(sim_type) '_pred_' num2str(pred_ind) '_final'];
     load([filename filename2 '.mat'])
     q = q_final{l};
-    q(1) = q(1)/10000;
-    q(3:4) = q(3:4)/4000;
-    q(5:8) = zeros(1,4);
-%     q(5:8) = q(5:8)/40;
+%     q(1) = q(1)/100;
+%     q(2:4) = q(2:4)/40;
+
+%       %works well for well = 4, pred_ind = 3, not taxis
+% %     q(1:4) = .006:.001:.009;
+%       q(5:8) = 0;  
+      
+    %works well for well = 4, pred_ind = 3, not taxis
+    q(1:4) = 0;
+    q(5:8) = .0065:.001:.0095;
+
+  
+    %diffusion
+    q(9) = 1e-4;
+    
 
 
 %load in data
@@ -26,10 +39,25 @@
     %helps with FRET interpolation
     dx_large = 10;
     %choose data
-    cell_data = avg_cell_data(ind_cell_data{well-1,2}(:,:,16:end),pred_ind)';
-    FRET_data = avg_cell_data(ind_fret_data{well-1,2}(:,1:dx_large:end,16:end),pred_ind)';
-    cell_data_std = ind_cell_data_sv{well-1,2}(:,16:end);
     
+    if strcmp(fitpred,'fit')
+    
+        cell_data = avg_cell_data(ind_cell_data{well-1,2}(:,:,16:end),pred_ind)';
+        FRET_data = avg_cell_data(ind_fret_data{well-1,2}(:,1:dx_large:end,16:end),pred_ind)';
+        cell_data_std = ind_cell_data_sv{well-1,2}(:,16:end);
+
+    elseif strcmp(fitpred,'pred')
+        
+        
+        cell_data = squeeze(ind_cell_data{well-1,2}(pred_ind,:,16:end))';
+        FRET_data = squeeze(ind_fret_data{well-1,2}(pred_ind,1:dx_large:end,16:end))';
+        cell_data_std = ind_cell_data_sv{well-1,2}(:,16:end);
+    
+    else
+        
+        error('incorrect fitpred')
+    
+    end
         
     %initialize data grids
     [tndata,xndata] = size(cell_data);
@@ -86,15 +114,21 @@
     BC_x_1 = @(t) 0;
 
 %load sparse matrices for later computation
+    %convection matrices
     [A_pos,~,~,A_neg,~,~] = aMatrixConstruction(xn);
- 
+    %diffusion matrix
+    D = dt/dx^2*sparse(repmat(x_int,1,3),[x_int-1 x_int x_int+1],[ones(1,xn-2) ...
+    -2*ones(1,xn-2) ones(1,xn-2)],xn,xn);
+    
     
    
+tic
+
 %run simulation
     [model] = FRET_dep_convection_space(q,F1,F2,m0,m1,dm0,dm1,x,dx,xn,...
-        x_int,xbd_0,xbd_1,t,dt,tn,tdata,xdata,IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg);
+        x_int,xbd_0,xbd_1,t,dt,tn,tdata,xdata,IC,IC_type,BC_x_0,BC_x_1,A_pos,A_neg,D);
     
-   
+toc 
     
 %plot simulation against data when t is a multiple of toCompare
     toCompare = 6;
@@ -133,12 +167,16 @@
     %%%% 10-4-17, creating a chemokinesis function v(m) that satisfies v(0)=0.
     %then linear up to m0 . May consider v(m) = 0 for all m < m0 in the
     %future.
-    msamp1 = augknt([0,m1,0,linspace(m0,m1,n)],2);
+%     
+%     %%%% v(0) = 0
+%     msamp1 = augknt([0,m1,0,linspace(m0,m1,n)],2);
+%     %create spline functions
+%     v_spline1 = spmak(msamp1,[0 q(1:4)']);
+
+    %%%% v only defined on m1, m2
+    msamp1 = augknt([m0,m1,linspace(m0,m1,n)],2);
     %create spline functions
-    v_spline1 = spmak(msamp1,[0 q(1:4)']);
-% %     msamp1 = augknt([m0,m1,linspace(m0,m1,n)],2);
-% %     %create spline functions
-% %     v_spline1 = spmak(msamp1,q(1:4)');
+    v_spline1 = spmak(msamp1,q(1:4)');
 
     %%%%
     
@@ -176,9 +214,10 @@
         plot(x,chem_speed(tdata(i)))
 
         subplot(2,1,2)
-        hold off
+%         hold off
+        yyaxis left
         plot(x,FRET(tdata(i)))
-        hold on
+        yyaxis right
         plot(x,dFRETdx(tdata(i)))
 
         pause(1)
